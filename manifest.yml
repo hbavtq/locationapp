@@ -1,0 +1,9 @@
+---
+applications:
+- name: locationapp
+  memory: 8M
+  instances: 1
+  buildpack: https://github.com/michaljemala/cloudfoundry-buildpack-go.git
+  host: locationapp
+  domain: de.a9sapp.eu
+  path: .
