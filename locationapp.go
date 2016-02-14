@@ -5,26 +5,16 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 )
 
 type Location struct {
-	Speed          string `json:"speed"`
-	Eventtype      string `json:"eventtype"`
-	Locationmethod string `json:"locationmethod"`
-	Username       string `json:"username"`
-	Date           string `json:"date"`
-	Distance       string `json:"distance"`
-	Phonenumber    string `json:"phonenumber"`
-	Sessionid      string `json:"sessionid"`
-	Direction      string `json:"direction"`
-	Latitude       string `json:"latitude"`
-	Longitude      string `json:"longitude"`
-	Accuracy       string `json:"accuracy"`
-	Extrainfo      string `json:"extrainfo"`
+	Device    string `json:"device"`
+	Date      string `json:"date"`
+	Latitude  string `json:"latitude"`
+	Longitude string `json:"longitude"`
 }
 
-var lm map[string]*Location = make(map[string]*Location, 0)
+var m map[string]*Location = make(map[string]*Location, 0)
 
 func main() {
 	http.HandleFunc("/", locationHandler)
@@ -34,57 +24,59 @@ func main() {
 }
 
 func locationHandler(w http.ResponseWriter, r *http.Request) {
-	device := r.URL.Path[1:]
-	if device != "" {
-		returnLocation(w, r, device)
+	// check URL parameter
+	d := r.URL.Path[1:]
+
+	// return location for device name from URL
+	if d != "" {
+		returnLocation(d, w, r)
 		return
 	}
 
+	// store new location
 	receiveLocation(w, r)
 	return
 }
 
-func returnLocation(w http.ResponseWriter, r *http.Request, device string) {
-	location := lm[device]
-	if location == nil {
-		log.Println("No location saved for device", device)
+func returnLocation(d string, w http.ResponseWriter, r *http.Request) {
+	// find location in map
+	l := m[d]
+	if l == nil {
+		log.Println("location not found for", d)
 		http.NotFound(w, r)
 		return
 	}
 
-	js, err := json.Marshal(location)
+	// convert location to json
+	js, err := json.Marshal(l)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Println("Returning location", string(js))
+	// return location as json
+	log.Println("returning location", string(js))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
 }
 
 func receiveLocation(w http.ResponseWriter, r *http.Request) {
-
-	r.ParseForm()
-	// map[speed:[0] eventtype:[android] locationmethod:[fused] username:[hb] date:[2016-02-11+23%3A26%3A29] distance:[0.0] phonenumber:[51ce74b7-0780-43b7-85b4-9994e33cffe2] sessionid:[32a40c06-6be9-4cb8-b27f-19c07995deff] direction:[0] latitude:[51.3691482] accuracy:[71] extrainfo:[0] longitude:[12.7449269]]
-
 	l := &Location{
-		Speed:          strings.Join(r.Form["speed"], ""),
-		Eventtype:      strings.Join(r.Form["eventtype"], ""),
-		Locationmethod: strings.Join(r.Form["locationmethod"], ""),
-		Username:       strings.Join(r.Form["username"], ""),
-		Date:           strings.Join(r.Form["date"], ""),
-		Distance:       strings.Join(r.Form["distance"], ""),
-		Phonenumber:    strings.Join(r.Form["phonenumber"], ""),
-		Sessionid:      strings.Join(r.Form["sessionid"], ""),
-		Direction:      strings.Join(r.Form["direction"], ""),
-		Latitude:       strings.Join(r.Form["latitude"], ""),
-		Longitude:      strings.Join(r.Form["longitude"], ""),
-		Accuracy:       strings.Join(r.Form["accuracy"], ""),
-		Extrainfo:      strings.Join(r.Form["extrainfo"], ""),
+		Device:    r.FormValue("username"),
+		Date:      r.FormValue("date"),
+		Latitude:  r.FormValue("latitude"),
+		Longitude: r.FormValue("longitude"),
 	}
 
-	lm[l.Username] = l
+	if l.Date == "" || l.Device == "" || l.Latitude == "" || l.Longitude == "" {
+		msg := "invalid parameters given"
+		log.Println(msg)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
 
-	log.Println("Set location to", l)
+	// store location in map
+	log.Println("setting location to", *l)
+	m[l.Device] = l
+
 }
